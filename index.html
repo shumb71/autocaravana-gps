@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutocaravanaGPS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #7d8590;
+  --accent: #f0a500;
+  --accent2: #e05c1a;
+  --green: #3fb950;
+  --red: #f85149;
+  --blue: #58a6ff;
+  --radius: 10px;
+  --font-mono: 'Space Mono', monospace;
+  --font: 'DM Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.logo {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+.logo span { color: var(--muted); }
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.4s;
+}
+.status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.error { background: var(--red); }
+
+/* LAYOUT */
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 300px;
+  min-width: 300px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  flex: 1;
+  padding: 12px 8px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.tab-panel.active { display: flex; }
+.panel-scroll { flex: 1; overflow-y: auto; padding: 16px; }
+.panel-scroll::-webkit-scrollbar { width: 4px; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* CARDS */
+.card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.card-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.card-value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+.card-value.mono { font-family: var(--font-mono); font-size: 13px; }
+.card-value.accent { color: var(--accent); }
+.card-value.green { color: var(--green); }
+
+/* STAT GRID */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* ZONES LIST */
+.zone-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.zone-item:hover { border-color: var(--accent); }
+.zone-item.active-zone { border-color: var(--accent); background: rgba(240,165,0,0.06); }
+.zone-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.zone-name { font-weight: 500; font-size: 14px; }
+.zone-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(240,165,0,0.15);
+  color: var(--accent);
+  border: 1px solid rgba(240,165,0,0.3);
+}
+.zone-badge.inside { background: rgba(63,185,80,0.15); color: var(--green); border-color: rgba(63,185,80,0.3); }
+.zone-badge.outside { background: rgba(248,81,73,0.12); color: var(--red); border-color: rgba(248,81,73,0.25); }
+.zone-meta { font-size: 12px; color: var(--muted); }
+.zone-actions { display: flex; gap: 6px; margin-top: 8px; }
+.btn-xs {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.15s;
+}
+.btn-xs:hover { color: var(--text); border-color: var(--muted); }
+.btn-xs.danger:hover { color: var(--red); border-color: var(--red); }
+
+/* ALERTS LIST */
+.alert-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+.alert-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.alert-dot.enter { background: var(--green); }
+.alert-dot.exit { background: var(--red); }
+.alert-text { font-size: 13px; line-height: 1.4; }
+.alert-time { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+/* FORMS */
+.form-group { margin-bottom: 12px; }
+.form-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block; }
+.form-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+.form-input:focus { outline: none; border-color: var(--accent); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { background: #f5b830; }
+.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); margin-top: 6px; }
+.btn-secondary:hover { border-color: var(--muted); }
+.btn-danger { background: rgba(248,81,73,0.1); color: var(--red); border: 1px solid rgba(248,81,73,0.3); margin-top: 6px; }
+.btn-danger:hover { background: rgba(248,81,73,0.2); }
+
+/* MAP */
+#map {
+  flex: 1;
+  min-height: 400px;
+  background: var(--bg);
+  position: relative;
+}
+.leaflet-container { background: #1a1f2e; }
+.map-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.map-btn:hover { border-color: var(--accent); color: var(--accent); }
+.map-btn.active-draw { border-color: var(--accent); color: var(--accent); background: rgba(240,165,0,0.08); }
+
+/* CONFIG PANEL */
+.config-section { margin-bottom: 20px; }
+.config-title {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(48,54,61,0.5);
+}
+.toggle-label { font-size: 13px; }
+.toggle-sub { font-size: 11px; color: var(--muted); }
+.toggle {
+  position: relative;
+  width: 36px; height: 20px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.toggle-slider:before {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  left: 3px; top: 3px;
+  background: var(--muted);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider:before { transform: translateX(16px); background: #000; }
+
+/* TOAST */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px;
+  max-width: 280px;
+  animation: slideIn 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+.toast.warn { border-color: var(--accent); }
+@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* SETUP OVERLAY */
+.setup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(13,17,23,0.95);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.setup-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px;
+  width: 420px;
+  max-width: 95vw;
+}
+.setup-logo {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.setup-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; line-height: 1.5; }
+.setup-hint { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+.setup-hint a { color: var(--accent); text-decoration: none; }
+
+/* REFRESH indicator */
+.refresh-ring {
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  display: none;
+}
+.refresh-ring.spinning { display: block; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Leaflet dark overrides */
+.leaflet-popup-content-wrapper { background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: none; }
+.leaflet-popup-tip { background: var(--bg2); }
+.leaflet-control-zoom a { background: var(--bg2) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.leaflet-control-zoom a:hover { background: var(--bg3) !important; }
+
+/* Responsive */
+@media (max-width: 700px) {
+  .sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border); max-height: 45vh; }
+  .app-body { flex-direction: column; }
+  #map { min-height: 55vh; }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.empty-icon { font-size: 28px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<!-- SETUP OVERLAY -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-box">
+    <div class="setup-logo">AutocaravanaGPS</div>
+    <div class="setup-sub">Introduce tus credenciales del portal RMS de Teltonika para conectar.</div>
+    <div class="form-group">
+      <label class="form-label">RMS API Key</label>
+      <input class="form-input" id="apiKey" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Company ID</label>
+      <input class="form-input" id="companyId" type="text" placeholder="12345">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Device ID (ID del RUT955 en RMS)</label>
+      <input class="form-input" id="deviceId" type="text" placeholder="67890">
+    </div>
+    <button class="btn btn-primary" onclick="saveSetup()">Conectar</button>
+    <div class="setup-hint">
+      API Key: en RMS → tu cuenta → <strong>API Tokens</strong>.<br>
+      Company/Device ID: en la URL al seleccionar el dispositivo.<br>
+      <a href="https://wiki.teltonika-networks.com/view/RMS_API" target="_blank">Documentación API RMS →</a>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Autocaravana<span>GPS</span></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="refresh-ring" id="refreshRing"></div>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Desconectado</span>
+    </div>
+    <button class="map-btn" onclick="showSetup()" style="padding:5px 12px;font-size:11px;">Config</button>
+  </div>
+</header>
+
+<!-- BODY -->
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('gps')">GPS</button>
+      <button class="tab-btn" onclick="switchTab('zonas')">Zonas</button>
+      <button class="tab-btn" onclick="switchTab('alertas')">Alertas</button>
+      <button class="tab-btn" onclick="switchTab('ajustes')">Ajustes</button>
+    </div>
+
+    <!-- TAB: GPS -->
+    <div class="tab-panel active" id="tab-gps">
+      <div class="panel-scroll">
+        <div class="stat-grid">
+          <div class="card">
+            <div class="card-label">Latitud</div>
+            <div class="card-value mono" id="gpsLat">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Longitud</div>
+            <div class="card-value mono" id="gpsLon">—</div>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="card">
+            <div class="card-label">Velocidad</div>
+            <div class="card-value accent" id="gpsSpeed">— km/h</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Satélites</div>
+            <div class="card-value green" id="gpsSat">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">Última actualización</div>
+          <div class="card-value mono" id="gpsTime" style="font-size:12px;">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Altitud</div>
+          <div class="card-value" id="gpsAlt">— m</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Rumbo</div>
+          <div class="card-value" id="gpsHeading">—°</div>
+        </div>
+        <button class="btn btn-secondary" onclick="fetchGPS()">Actualizar ahora</button>
+      </div>
+    </div>
+
+    <!-- TAB: ZONAS -->
+    <div class="tab-panel" id="tab-zonas">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+        <button class="btn btn-primary" onclick="startDrawZone()" id="drawZoneBtn">+ Nueva zona</button>
+      </div>
+      <div class="panel-scroll" id="zonasList">
+        <div class="empty-state">
+          <div class="empty-icon">◎</div>
+          Conecta el dispositivo para ver las zonas, o crea una nueva dibujando en el mapa.
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ALERTAS -->
+    <div class="tab-panel" id="tab-alertas">
+      <div class="panel-scroll">
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-label">Notificaciones Telegram</div>
+          <div class="form-group" style="margin-top:8px;margin-bottom:8px;">
+            <label class="form-label">Bot Token</label>
+            <input class="form-input" id="tgToken" placeholder="123456:ABC-DEF..." style="font-size:12px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Chat ID</label>
+            <input class="form-input" id="tgChatId" placeholder="-100xxxxxxxxxx" style="font-size:12px;">
+          </div>
+          <button class="btn btn-primary" style="margin-top:4px;" onclick="saveTelegram()">Guardar</button>
+          <button class="btn btn-secondary" onclick="testTelegram()">Probar Telegram</button>
+        </div>
+        <div id="alertsList">
+          <div class="empty-state">
+            <div class="empty-icon">🔔</div>
+            El log de alertas aparecerá aquí cuando el sistema detecte entradas o salidas de zonas.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: AJUSTES -->
+    <div class="tab-panel" id="tab-ajustes">
+      <div class="panel-scroll">
+        <div class="config-section">
+          <div class="config-title">Actualización automática</div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Auto-refresh GPS</div>
+              <div class="toggle-sub">Actualiza posición cada X segundos</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Intervalo (segundos)</label>
+            <input class="form-input" id="refreshInterval" type="number" value="30" min="5" max="300">
+          </div>
+        </div>
+        <div class="config-section">
+          <div class="config-title">Mapa</div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Centrar en posición</div>
+              <div class="toggle-sub">El mapa sigue la autocaravana</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="followToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Mostrar rastro</div>
+              <div class="toggle-sub">Línea de recorrido en el mapa</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="trailToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="config-section">
+          <div class="config-title">Datos</div>
+          <button class="btn btn-secondary" onclick="exportData()">Exportar historial GPS (JSON)</button>
+          <button class="btn btn-danger" onclick="clearData()">Borrar datos locales</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div style="flex:1;position:relative;display:flex;flex-direction:column;">
+    <div id="map"></div>
+    <div class="map-controls">
+      <button class="map-btn" onclick="centerMap()" title="Centrar en la autocaravana">⊕ Centrar</button>
+      <button class="map-btn" id="drawCircleBtn" onclick="activateCircleDraw()">◉ Dibujar zona</button>
+      <button class="map-btn" onclick="cancelDraw()" id="cancelDrawBtn" style="display:none;border-color:var(--red);color:var(--red);">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- MODAL ZONA -->
+<div id="zoneModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:3000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px;width:360px;max-width:95vw;">
+    <div style="font-family:var(--font-mono);font-size:13px;color:var(--accent);margin-bottom:16px;">NUEVA ZONA GEOFENCING</div>
+    <div class="form-group">
+      <label class="form-label">Nombre de la zona</label>
+      <input class="form-input" id="zoneName" placeholder="Casa Marbella, Camping...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Radio (m)</label>
+        <input class="form-input" id="zoneRadius" type="number" value="300" min="50">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Alerta en</label>
+        <select class="form-input" id="zoneEvent">
+          <option value="exit">Salida</option>
+          <option value="enter">Entrada</option>
+          <option value="both">Ambos</option>
+        </select>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;" id="zoneCoordPreview">Haz clic en el mapa para posicionar la zona</div>
+    <button class="btn btn-primary" onclick="saveZone()">Crear zona</button>
+    <button class="btn btn-secondary" onclick="closeZoneModal()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────
+const state = {
+  apiKey: '', companyId: '', deviceId: '',
+  tgToken: '', tgChatId: '',
+  gps: null,
+  zones: [],
+  alerts: [],
+  trail: [],
+  drawMode: false,
+  pendingZoneLatLng: null,
+  autoRefreshTimer: null,
+  connected: false,
+};
+
+// ── MAP INIT ──────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([36.5, -4.9], 10);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© CartoDB',
+  maxZoom: 19,
+}).addTo(map);
+
+const vehicleIcon = L.divIcon({
+  html: `<div style="width:18px;height:18px;background:#f0a500;border:3px solid #fff;border-radius:50%;box-shadow:0 0 12px rgba(240,165,0,0.6);"></div>`,
+  className: '', iconAnchor: [9, 9],
+});
+
+let vehicleMarker = null;
+let trailPolyline = L.polyline([], { color: '#f0a500', weight: 2, opacity: 0.5, dashArray: '6 4' }).addTo(map);
+let zoneCircles = {};
+let drawCircle = null;
+
+map.on('click', onMapClick);
+
+// ── LOCAL STORAGE ─────────────────────────────────────────────
+function loadState() {
+  const s = JSON.parse(localStorage.getItem('acgps') || '{}');
+  if (s.apiKey) state.apiKey = s.apiKey;
+  if (s.companyId) state.companyId = s.companyId;
+  if (s.deviceId) state.deviceId = s.deviceId;
+  if (s.tgToken) { state.tgToken = s.tgToken; document.getElementById('tgToken').value = s.tgToken; }
+  if (s.tgChatId) { state.tgChatId = s.tgChatId; document.getElementById('tgChatId').value = s.tgChatId; }
+  if (s.zones) { state.zones = s.zones; renderZones(); }
+  if (s.alerts) { state.alerts = s.alerts; renderAlerts(); }
+  if (s.trail) { state.trail = s.trail; trailPolyline.setLatLngs(state.trail); }
+  if (s.refreshInterval) document.getElementById('refreshInterval').value = s.refreshInterval;
+  if (s.apiKey && s.deviceId) {
+    document.getElementById('setupOverlay').style.display = 'none';
+    fetchGPS();
+  }
+}
+
+function saveLocal() {
+  localStorage.setItem('acgps', JSON.stringify({
+    apiKey: state.apiKey, companyId: state.companyId, deviceId: state.deviceId,
+    tgToken: state.tgToken, tgChatId: state.tgChatId,
+    zones: state.zones, alerts: state.alerts.slice(-100), trail: state.trail.slice(-500),
+    refreshInterval: document.getElementById('refreshInterval').value,
+  }));
+}
+
+// ── SETUP ────────────────────────────────────────────────────
+function saveSetup() {
+  const k = document.getElementById('apiKey').value.trim();
+  const c = document.getElementById('companyId').value.trim();
+  const d = document.getElementById('deviceId').value.trim();
+  if (!k || !d) { toast('Introduce al menos la API Key y el Device ID', 'error'); return; }
+  state.apiKey = k; state.companyId = c; state.deviceId = d;
+  saveLocal();
+  document.getElementById('setupOverlay').style.display = 'none';
+  fetchGPS();
+}
+function showSetup() {
+  document.getElementById('setupOverlay').style.display = 'flex';
+  document.getElementById('apiKey').value = state.apiKey;
+  document.getElementById('companyId').value = state.companyId;
+  document.getElementById('deviceId').value = state.deviceId;
+}
+
+// ── RMS API ──────────────────────────────────────────────────
+async function rmsGet(path) {
+  const base = 'https://rms.teltonika-networks.com/api';
+  const r = await fetch(`${base}${path}`, {
+    headers: { 'Authorization': `Bearer ${state.apiKey}`, 'Accept': 'application/json' }
+  });
+  if (!r.ok) throw new Error(`RMS ${r.status}: ${r.statusText}`);
+  return r.json();
+}
+
+async function fetchGPS() {
+  if (!state.apiKey || !state.deviceId) return;
+  setStatus('loading');
+  try {
+    // RMS API endpoint para GPS del dispositivo
+    const data = await rmsGet(`/devices/${state.deviceId}/gps`);
+    const gps = data.data || data;
+    state.gps = gps;
+    updateGPSUI(gps);
+    updateMapPosition(gps.lat, gps.lng || gps.lon, gps.speed, gps.heading);
+    checkGeofences(gps.lat, gps.lng || gps.lon);
+    if (document.getElementById('trailToggle').checked) {
+      state.trail.push([gps.lat, gps.lng || gps.lon]);
+      trailPolyline.setLatLngs(state.trail);
+    }
+    setStatus('online');
+    saveLocal();
+  } catch(e) {
+    // Demo mode si la API falla (para pruebas sin credenciales reales)
+    if (e.message.includes('401') || e.message.includes('403')) {
+      toast('API Key incorrecta o sin permisos', 'error');
+      setStatus('error');
+    } else {
+      // Datos demo para visualizar la interfaz
+      useDemoData();
+    }
+  }
+}
+
+function useDemoData() {
+  const lat = 36.5107 + (Math.random() - 0.5) * 0.002;
+  const lon = -4.8825 + (Math.random() - 0.5) * 0.002;
+  const gps = { lat, lng: lon, speed: Math.floor(Math.random() * 5), satellites: 8 + Math.floor(Math.random()*4), altitude: 42, heading: Math.floor(Math.random()*360), timestamp: new Date().toISOString() };
+  state.gps = gps;
+  updateGPSUI(gps);
+  updateMapPosition(lat, lon, gps.speed, gps.heading);
+  checkGeofences(lat, lon);
+  state.trail.push([lat, lon]);
+  trailPolyline.setLatLngs(state.trail);
+  setStatus('online');
+  toast('Modo demo — conecta tu API Key real para datos en vivo', 'warn');
+  saveLocal();
+}
+
+function updateGPSUI(g) {
+  document.getElementById('gpsLat').textContent = (g.lat||0).toFixed(6);
+  document.getElementById('gpsLon').textContent = (g.lng||g.lon||0).toFixed(6);
+  document.getElementById('gpsSpeed').textContent = `${g.speed||0} km/h`;
+  document.getElementById('gpsSat').textContent = g.satellites||g.sats||'—';
+  document.getElementById('gpsAlt').textContent = `${g.altitude||g.alt||0} m`;
+  document.getElementById('gpsHeading').textContent = `${g.heading||g.course||0}°`;
+  const t = g.timestamp ? new Date(g.timestamp).toLocaleString('es-ES') : new Date().toLocaleString('es-ES');
+  document.getElementById('gpsTime').textContent = t;
+}
+
+function updateMapPosition(lat, lon, speed, heading) {
+  if (!lat || !lon) return;
+  const ll = [lat, lon];
+  if (!vehicleMarker) {
+    vehicleMarker = L.marker(ll, { icon: vehicleIcon, zIndexOffset: 1000 }).addTo(map)
+      .bindPopup(`<b>Autocaravana</b><br>${lat.toFixed(6)}, ${lon.toFixed(6)}<br>${speed||0} km/h`);
+  } else {
+    vehicleMarker.setLatLng(ll);
+    vehicleMarker.getPopup()?.setContent(`<b>Autocaravana</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}<br>${speed||0} km/h`);
+  }
+  if (document.getElementById('followToggle').checked) {
+    map.setView(ll, map.getZoom() < 13 ? 14 : map.getZoom());
+  }
+}
+
+// ── GEOFENCING ───────────────────────────────────────────────
+function renderZones() {
+  const el = document.getElementById('zonasList');
+  if (!state.zones.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div>Sin zonas definidas. Pulsa "+ Nueva zona" para crear una.</div>`;
+    return;
+  }
+  el.innerHTML = '';
+  state.zones.forEach((z, i) => {
+    const inside = z._inside;
+    const badgeCls = inside === true ? 'inside' : inside === false ? 'outside' : '';
+    const badgeTxt = inside === true ? 'DENTRO' : inside === false ? 'FUERA' : '—';
+    const div = document.createElement('div');
+    div.className = `zone-item${inside === true ? ' active-zone' : ''}`;
+    div.innerHTML = `
+      <div class="zone-header">
+        <div class="zone-name">${z.name}</div>
+        <div class="zone-badge ${badgeCls}">${badgeTxt}</div>
+      </div>
+      <div class="zone-meta">${z.radius}m · alerta: ${z.event === 'both' ? 'entrada y salida' : z.event === 'enter' ? 'entrada' : 'salida'}</div>
+      <div class="zone-meta" style="margin-top:2px;">${z.lat.toFixed(5)}, ${z.lon.toFixed(5)}</div>
+      <div class="zone-actions">
+        <button class="btn-xs" onclick="centerOnZone(${i})">Ver en mapa</button>
+        <button class="btn-xs danger" onclick="deleteZone(${i})">Eliminar</button>
+      </div>`;
+    el.appendChild(div);
+
+    // Dibuja círculo en mapa
+    if (!zoneCircles[z.id]) {
+      zoneCircles[z.id] = L.circle([z.lat, z.lon], {
+        radius: z.radius,
+        color: '#f0a500',
+        fillColor: '#f0a500',
+        fillOpacity: 0.06,
+        weight: 1.5,
+        dashArray: '6 4',
+      }).addTo(map).bindPopup(`<b>${z.name}</b><br>${z.radius}m`);
+    }
+  });
+}
+
+function checkGeofences(lat, lon) {
+  if (!lat || !lon) return;
+  state.zones.forEach(z => {
+    const dist = map.distance([lat, lon], [z.lat, z.lon]);
+    const inside = dist <= z.radius;
+    if (z._inside !== undefined && z._inside !== inside) {
+      const type = inside ? 'enter' : 'exit';
+      if (z.event === 'both' || z.event === type) {
+        const msg = inside
+          ? `Autocaravana entró en zona "${z.name}"`
+          : `Autocaravana salió de zona "${z.name}"`;
+        addAlert(msg, type, z.name);
+        sendTelegram(msg);
+      }
+    }
+    z._inside = inside;
+  });
+  renderZones();
+}
+
+function addAlert(msg, type, zone) {
+  state.alerts.unshift({ msg, type, zone, time: new Date().toISOString() });
+  renderAlerts();
+  toast(msg, type === 'enter' ? 'success' : 'error');
+}
+
+function renderAlerts() {
+  const el = document.getElementById('alertsList');
+  if (!state.alerts.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div>Sin alertas registradas.</div>`;
+    return;
+  }
+  el.innerHTML = state.alerts.slice(0, 50).map(a => `
+    <div class="alert-item">
+      <div class="alert-dot ${a.type}"></div>
+      <div>
+        <div class="alert-text">${a.msg}</div>
+        <div class="alert-time">${new Date(a.time).toLocaleString('es-ES')}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── DRAW MODE ────────────────────────────────────────────────
+function startDrawZone() {
+  switchTab('zonas');
+  activateCircleDraw();
+}
+
+function activateCircleDraw() {
+  state.drawMode = true;
+  map.getContainer().style.cursor = 'crosshair';
+  document.getElementById('drawCircleBtn').classList.add('active-draw');
+  document.getElementById('cancelDrawBtn').style.display = 'block';
+  toast('Haz clic en el mapa para colocar la zona', 'warn');
+}
+
+function cancelDraw() {
+  state.drawMode = false;
+  state.pendingZoneLatLng = null;
+  map.getContainer().style.cursor = '';
+  document.getElementById('drawCircleBtn').classList.remove('active-draw');
+  document.getElementById('cancelDrawBtn').style.display = 'none';
+  if (drawCircle) { map.removeLayer(drawCircle); drawCircle = null; }
+  document.getElementById('zoneModal').style.display = 'none';
+}
+
+function onMapClick(e) {
+  if (!state.drawMode) return;
+  state.pendingZoneLatLng = e.latlng;
+  const r = parseInt(document.getElementById('zoneRadius')?.value) || 300;
+  if (drawCircle) map.removeLayer(drawCircle);
+  drawCircle = L.circle(e.latlng, {
+    radius: r, color: '#f0a500', fillColor: '#f0a500', fillOpacity: 0.1, weight: 2, dashArray: '5 4'
+  }).addTo(map);
+  document.getElementById('zoneCoordPreview').textContent =
+    `Centro: ${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+  document.getElementById('zoneModal').style.display = 'flex';
+}
+
+function saveZone() {
+  const name = document.getElementById('zoneName').value.trim();
+  const radius = parseInt(document.getElementById('zoneRadius').value);
+  const event = document.getElementById('zoneEvent').value;
+  if (!name) { toast('Ponle un nombre a la zona', 'error'); return; }
+  if (!state.pendingZoneLatLng) { toast('Haz clic en el mapa primero', 'error'); return; }
+  const zone = {
+    id: Date.now().toString(),
+    name, radius, event,
+    lat: state.pendingZoneLatLng.lat,
+    lon: state.pendingZoneLatLng.lng,
+    _inside: undefined,
+  };
+  state.zones.push(zone);
+  renderZones();
+  saveLocal();
+  cancelDraw();
+  document.getElementById('zoneName').value = '';
+  toast(`Zona "${name}" creada`, 'success');
+  switchTab('zonas');
+}
+
+function closeZoneModal() { cancelDraw(); }
+
+function deleteZone(i) {
+  const z = state.zones[i];
+  if (zoneCircles[z.id]) { map.removeLayer(zoneCircles[z.id]); delete zoneCircles[z.id]; }
+  state.zones.splice(i, 1);
+  renderZones();
+  saveLocal();
+  toast('Zona eliminada', 'warn');
+}
+
+function centerOnZone(i) {
+  const z = state.zones[i];
+  map.setView([z.lat, z.lon], 14);
+}
+
+// ── TELEGRAM ─────────────────────────────────────────────────
+function saveTelegram() {
+  state.tgToken = document.getElementById('tgToken').value.trim();
+  state.tgChatId = document.getElementById('tgChatId').value.trim();
+  saveLocal();
+  toast('Configuración Telegram guardada', 'success');
+}
+
+async function sendTelegram(msg) {
+  if (!state.tgToken || !state.tgChatId) return;
+  const gps = state.gps;
+  const text = `🚐 *AutocaravanaGPS*\n${msg}\n📍 ${gps?.lat?.toFixed(5)}, ${(gps?.lng||gps?.lon)?.toFixed(5)}\n⏱ ${new Date().toLocaleString('es-ES')}`;
+  try {
+    await fetch(`https://api.telegram.org/bot${state.tgToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: state.tgChatId, text, parse_mode: 'Markdown' }),
+    });
+  } catch(e) { console.warn('Telegram error:', e); }
+}
+
+async function testTelegram() {
+  saveTelegram();
+  if (!state.tgToken || !state.tgChatId) { toast('Configura Bot Token y Chat ID primero', 'error'); return; }
+  await sendTelegram('✅ Test de conexión correcto — alertas geofencing activas');
+  toast('Mensaje de prueba enviado a Telegram', 'success');
+}
+
+// ── AUTO REFRESH ──────────────────────────────────────────────
+function toggleAutoRefresh() {
+  const on = document.getElementById('autoRefreshToggle').checked;
+  clearInterval(state.autoRefreshTimer);
+  if (on) {
+    const secs = parseInt(document.getElementById('refreshInterval').value) || 30;
+    state.autoRefreshTimer = setInterval(fetchGPS, secs * 1000);
+    toast(`Auto-refresh activo: cada ${secs}s`, 'success');
+  } else {
+    toast('Auto-refresh desactivado', 'warn');
+  }
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['gps','zonas','alertas','ajustes'];
+    b.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+function setStatus(s) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  const ring = document.getElementById('refreshRing');
+  dot.className = 'status-dot';
+  ring.classList.remove('spinning');
+  if (s === 'online') { dot.classList.add('online'); txt.textContent = 'Conectado'; state.connected = true; }
+  else if (s === 'error') { dot.classList.add('error'); txt.textContent = 'Error'; }
+  else if (s === 'loading') { ring.classList.add('spinning'); txt.textContent = 'Actualizando...'; }
+  else { txt.textContent = 'Desconectado'; }
+}
+
+function centerMap() {
+  if (state.gps) map.setView([state.gps.lat, state.gps.lng || state.gps.lon], 15);
+}
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warn' ? 'warn' : ''}`;
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warn' ? '⚠' : 'ℹ';
+  t.innerHTML = `<span style="color:${type==='success'?'var(--green)':type==='error'?'var(--red)':'var(--accent)'}">${icon}</span> ${msg}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify({ gps: state.gps, trail: state.trail, zones: state.zones, alerts: state.alerts }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `acgps_${new Date().toISOString().slice(0,10)}.json`; a.click();
+}
+
+function clearData() {
+  if (!confirm('¿Borrar todos los datos locales?')) return;
+  localStorage.removeItem('acgps');
+  state.trail = []; trailPolyline.setLatLngs([]);
+  state.alerts = []; renderAlerts();
+  toast('Datos borrados', 'warn');
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+loadState();
+</script>
+</body>
+</html>
