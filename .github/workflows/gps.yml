@@ -16,45 +16,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch GPS from RMS
-        env:
-          RMS_API_KEY: ${{ secrets.RMS_API_KEY }}
         run: |
-          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $RMS_API_KEY" -H "Accept: application/json" "https://rms.teltonika-networks.com/api/devices/1868187")
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -1)
-          echo "HTTP: $HTTP_CODE"
-          if [ "$HTTP_CODE" = "200" ]; then
-            python3 - <<'PYEOF'
-import json, os, sys
-from datetime import datetime, timezone
-body = os.environ.get('BODY', '')
-d = json.loads(body)['data']
-out = {
-  "lat": d['latitude'],
-  "lon": d['longitude'],
-  "satellites": d['satellites'],
-  "accuracy": d['accuracy'],
-  "altitude": d['altitude'],
-  "speed": d['speed'],
-  "heading": d['course'],
-  "temperature": d['temperature'],
-  "signal": d['signal'],
-  "operator": d['operator'],
-  "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-  "source": "rms"
-}
-with open('gps.json', 'w') as f:
-  json.dump(out, f)
-print(f"GPS: {d['latitude']}, {d['longitude']}")
-PYEOF
-          else
-            echo "Error HTTP $HTTP_CODE"
-            if [ ! -f gps.json ]; then
-              echo '{"lat":null,"lon":null,"satellites":0,"accuracy":0,"timestamp":null,"source":"error"}' > gps.json
-            fi
-          fi
-        env:
-          BODY: ${{ env.BODY }}
+          BODY=$(curl -s -H "Authorization: Bearer ${{ secrets.RMS_API_KEY }}" -H "Accept: application/json" "https://rms.teltonika-networks.com/api/devices/1868187")
+          echo "HTTP OK"
+          RMS_BODY="$BODY" python3 fetch_gps.py
 
       - name: Commit gps.json
         run: |
