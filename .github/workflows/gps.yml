@@ -46,7 +46,10 @@ jobs:
             fi
           fi
 
-      - name: Commit gps.json
+     - name: Commit gps.json
         run: |
           git config user.name "github-actions[bot]"
-          git co
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add gps.json
+          git diff --staged --quiet || git commit -m "GPS $(date -u +'%H:%M:%S')"
+          git push
