@@ -24,6 +24,7 @@ jobs:
           BODY=$(echo "$RESPONSE" | head -1)
           echo "HTTP: $HTTP_CODE"
           echo "Body: $BODY"
+          echo "Body completo: $BODY"
           if [ "$HTTP_CODE" = "200" ]; then
             LAT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_latitude',''))")
             LON=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_longitude',''))")
