@@ -19,8 +19,6 @@ jobs:
         env:
           RMS_API_KEY: ${{ secrets.RMS_API_KEY }}
         run: |
-          echo "Consultando API RMS..."
-
           RESPONSE=$(curl -s -w "\n%{http_code}" \
             -H "Authorization: Bearer $RMS_API_KEY" \
             -H "Accept: application/json" \
@@ -29,44 +27,26 @@ jobs:
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -1)
 
-          echo "HTTP Status: $HTTP_CODE"
-          echo "Response: $BODY"
+          echo "HTTP: $HTTP_CODE"
+          echo "Body: $BODY"
 
           if [ "$HTTP_CODE" = "200" ]; then
-            # Extraer campos GPS del JSON de respuesta
-            LAT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_latitude') or d.get('gps_latitude',''))" 2>/dev/null)
-            LON=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_longitude') or d.get('gps_longitude',''))" 2>/dev/null)
-            SAT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_satellites') or d.get('gps_satellites','0'))" 2>/dev/null)
-            ACC=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_accuracy') or d.get('gps_accuracy','0'))" 2>/dev/null)
-            FIX=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_fix_status') or d.get('gps_fix_status','0'))" 2>/dev/null)
-
+            LAT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_latitude',''))" 2>/dev/null)
+            LON=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_longitude',''))" 2>/dev/null)
+            SAT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_satellites','0'))" 2>/dev/null)
+            ACC=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('gps_accuracy','0'))" 2>/dev/null)
             TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-            cat > gps.json << EOF
-          {
-            "lat": $LAT,
-            "lon": $LON,
-            "satellites": $SAT,
-            "accuracy": $ACC,
-            "fix": $FIX,
-            "timestamp": "$TIMESTAMP",
-            "source": "rms"
-          }
-          EOF
-
-            echo "GPS guardado: $LAT, $LON"
+            printf '{"lat":%s,"lon":%s,"satellites":%s,"accuracy":%s,"timestamp":"%s","source":"rms"}\n' \
+              "$LAT" "$LON" "$SAT" "$ACC" "$TIMESTAMP" > gps.json
+            echo "GPS: $LAT, $LON"
           else
-            echo "Error HTTP $HTTP_CODE — manteniendo gps.json anterior"
-            # Si no existe aún, crear uno vacío
+            echo "Error $HTTP_CODE"
             if [ ! -f gps.json ]; then
-              echo '{"lat":null,"lon":null,"satellites":0,"accuracy":0,"fix":0,"timestamp":null,"source":"error"}' > gps.json
+              echo '{"lat":null,"lon":null,"satellites":0,"accuracy":0,"timestamp":null,"source":"error"}' > gps.json
             fi
           fi
 
       - name: Commit gps.json
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gps.json
-          git diff --staged --quiet || git commit -m "GPS update $(date -u +'%H:%M:%S')"
-          git push
+          git co
