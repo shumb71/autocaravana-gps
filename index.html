@@ -690,10 +690,8 @@ function loadState() {
   if (s.alerts) { state.alerts = s.alerts; renderAlerts(); }
   if (s.trail) { state.trail = s.trail; trailPolyline.setLatLngs(state.trail); }
   if (s.refreshInterval) document.getElementById('refreshInterval').value = s.refreshInterval;
-  if (s.apiKey && s.deviceId) {
-    document.getElementById('setupOverlay').style.display = 'none';
-    fetchGPS();
-  }
+  document.getElementById('setupOverlay').style.display = 'none';
+  fetchGPS();
 }
 
 function saveLocal() {
@@ -723,40 +721,36 @@ function showSetup() {
   document.getElementById('deviceId').value = state.deviceId;
 }
 
-// ── RMS API ──────────────────────────────────────────────────
-async function rmsGet(path) {
-  const base = 'https://rms.teltonika-networks.com/api';
-  const r = await fetch(`${base}${path}`, {
-    headers: { 'Authorization': `Bearer ${state.apiKey}`, 'Accept': 'application/json' }
-  });
-  if (!r.ok) throw new Error(`RMS ${r.status}: ${r.statusText}`);
-  return r.json();
-}
+// ── GPS desde gps.json (generado por GitHub Action) ──────────
+const REPO_GPS_URL = 'gps.json';
 
 async function fetchGPS() {
-  if (!state.apiKey || !state.deviceId) return;
   setStatus('loading');
   try {
-    // RMS API endpoint para GPS del dispositivo
-    const data = await rmsGet(`/devices/${state.deviceId}/gps`);
-    const gps = data.data || data;
+    const r = await fetch(`${REPO_GPS_URL}?_=${Date.now()}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const gps = await r.json();
+    if (!gps.lat) throw new Error('Sin fix GPS');
     state.gps = gps;
     updateGPSUI(gps);
-    updateMapPosition(gps.lat, gps.lng || gps.lon, gps.speed, gps.heading);
-    checkGeofences(gps.lat, gps.lng || gps.lon);
+    updateMapPosition(gps.lat, gps.lon, gps.speed || 0, gps.heading || 0);
+    checkGeofences(gps.lat, gps.lon);
     if (document.getElementById('trailToggle').checked) {
-      state.trail.push([gps.lat, gps.lng || gps.lon]);
+      state.trail.push([gps.lat, gps.lon]);
       trailPolyline.setLatLngs(state.trail);
     }
     setStatus('online');
     saveLocal();
+    // Avisar si los datos tienen más de 10 minutos
+    if (gps.timestamp) {
+      const age = (Date.now() - new Date(gps.timestamp)) / 60000;
+      if (age > 10) toast(`Última posición hace ${Math.round(age)} min`, 'warn');
+    }
   } catch(e) {
-    // Demo mode si la API falla (para pruebas sin credenciales reales)
-    if (e.message.includes('401') || e.message.includes('403')) {
-      toast('API Key incorrecta o sin permisos', 'error');
+    if (e.message.includes('Sin fix')) {
+      toast('Router sin fix GPS — esperando satélites', 'warn');
       setStatus('error');
     } else {
-      // Datos demo para visualizar la interfaz
       useDemoData();
     }
   }
