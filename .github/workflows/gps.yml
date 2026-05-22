@@ -26,19 +26,7 @@ jobs:
           echo "Body: $BODY"
           echo "Body completo: $BODY"
          if [ "$HTTP_CODE" = "200" ]; then
-            LAT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['latitude'])")
-            LON=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['longitude'])")
-            SAT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['satellites'])")
-            ACC=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['accuracy'])")
-            ALT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['altitude'])")
-            SPD=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['speed'])")
-            CRS=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['course'])")
-            TMP=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['temperature'])")
-            OPR=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['operator'])")
-            SIG=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['signal'])")
-            TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            echo "{\"lat\":$LAT,\"lon\":$LON,\"satellites\":$SAT,\"accuracy\":$ACC,\"altitude\":$ALT,\"speed\":$SPD,\"heading\":$CRS,\"temperature\":$TMP,\"operator\":\"$OPR\",\"signal\":$SIG,\"timestamp\":\"$TIMESTAMP\",\"source\":\"rms\"}" > gps.json
-            echo "GPS guardado: $LAT, $LON"
+           printf '{"lat":%s,"lon":%s,"satellites":%s,"accuracy":%s,"altitude":%s,"speed":%s,"heading":%s,"temperature":%s,"operator":"%s","signal":%s,"timestamp":"%s","source":"rms"}\n' "$LAT" "$LON" "$SAT" "$ACC" "$ALT" "$SPD" "$CRS" "$TMP" "$OPR" "$SIG" "$TIMESTAMP" > gps.json
           fi
       - name: Commit gps.json
         run: |
