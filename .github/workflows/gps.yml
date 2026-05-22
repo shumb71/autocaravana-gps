@@ -14,6 +14,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Fetch GPS from RMS
         env:
           RMS_API_KEY: ${{ secrets.RMS_API_KEY }}
@@ -22,11 +23,39 @@ jobs:
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -1)
           echo "HTTP: $HTTP_CODE"
-          echo "Body: $BODY"
-          echo "Body completo: $BODY"
-         if [ "$HTTP_CODE" = "200" ]; then
-           printf '{"lat":%s,"lon":%s,"satellites":%s,"accuracy":%s,"altitude":%s,"speed":%s,"heading":%s,"temperature":%s,"operator":"%s","signal":%s,"timestamp":"%s","source":"rms"}\n' "$LAT" "$LON" "$SAT" "$ACC" "$ALT" "$SPD" "$CRS" "$TMP" "$OPR" "$SIG" "$TIMESTAMP" > gps.json
+          if [ "$HTTP_CODE" = "200" ]; then
+            python3 - <<'PYEOF'
+import json, os, sys
+from datetime import datetime, timezone
+body = os.environ.get('BODY', '')
+d = json.loads(body)['data']
+out = {
+  "lat": d['latitude'],
+  "lon": d['longitude'],
+  "satellites": d['satellites'],
+  "accuracy": d['accuracy'],
+  "altitude": d['altitude'],
+  "speed": d['speed'],
+  "heading": d['course'],
+  "temperature": d['temperature'],
+  "signal": d['signal'],
+  "operator": d['operator'],
+  "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+  "source": "rms"
+}
+with open('gps.json', 'w') as f:
+  json.dump(out, f)
+print(f"GPS: {d['latitude']}, {d['longitude']}")
+PYEOF
+          else
+            echo "Error HTTP $HTTP_CODE"
+            if [ ! -f gps.json ]; then
+              echo '{"lat":null,"lon":null,"satellites":0,"accuracy":0,"timestamp":null,"source":"error"}' > gps.json
+            fi
           fi
+        env:
+          BODY: ${{ env.BODY }}
+
       - name: Commit gps.json
         run: |
           git config user.name "github-actions[bot]"
