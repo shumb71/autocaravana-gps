@@ -18,9 +18,8 @@ jobs:
       - name: Fetch GPS from RMS
         run: |
           BODY=$(curl -s -H "Authorization: Bearer ${{ secrets.RMS_API_KEY }}" -H "Accept: application/json" "https://rms.teltonika-networks.com/api/devices/1868187")
-          echo "HTTP OK"
-          RMS_BODY="$BODY" python3 fetch_gps.py
-
+          echo "Respuesta: $BODY"
+          RMS_BODY="$BODY" python3 fetch_gps.py || echo "Python error: $?"
       - name: Commit gps.json
         run: |
           git config user.name "github-actions[bot]"
