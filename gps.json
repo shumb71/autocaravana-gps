@@ -1,1 +1,1 @@
-{"lat": 36.537963, "lon": -4.864019, "satellites": 6, "accuracy": 0.7, "altitude": 244.1, "speed": 0, "heading": 0, "temperature": 45, "signal": -76, "operator": "vodafone ES", "timestamp": "2026-05-23T11:45:02Z", "source": "rms"}
+{"lat": 36.538, "lon": -4.864018, "satellites": 8, "accuracy": 0.8, "altitude": 244.5, "speed": 0, "heading": 0, "temperature": 49, "signal": -73, "operator": "vodafone ES", "timestamp": "2026-05-23T15:46:01Z", "source": "rms"}
